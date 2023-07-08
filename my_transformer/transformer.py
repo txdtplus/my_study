@@ -1,5 +1,6 @@
 import numpy as np
 import torch.nn as nn
+import torch
 from datasets import *
 
 d_model = 512   # 字 Embedding 的维度
@@ -110,20 +111,6 @@ class EncoderLayer(nn.Module):
         enc_outputs = self.pos_ffn(enc_outputs)                     # enc_outputs: [batch_size, src_len, d_model]
         return enc_outputs, attn
 
-
-class EncoderLayer(nn.Module):
-    def __init__(self):
-        super(EncoderLayer, self).__init__()
-        self.enc_self_attn = MultiHeadAttention()       # 多头注意力机制
-        self.pos_ffn = PoswiseFeedForwardNet()          # 前馈神经网络
-
-    def forward(self, enc_inputs, enc_self_attn_mask):  # enc_inputs: [batch_size, src_len, d_model]
-        # 输入3个enc_inputs分别与W_q、W_k、W_v相乘得到Q、K、V             # enc_self_attn_mask: [batch_size, src_len, src_len]
-        enc_outputs, attn = self.enc_self_attn(enc_inputs, enc_inputs, enc_inputs,
-                                                                        # enc_outputs: [batch_size, src_len, d_model],
-                                               enc_self_attn_mask)      # attn: [batch_size, n_heads, src_len, src_len]
-        enc_outputs = self.pos_ffn(enc_outputs)                         # enc_outputs: [batch_size, src_len, d_model]
-        return enc_outputs, attn
 
 class Encoder(nn.Module):
     def __init__(self):

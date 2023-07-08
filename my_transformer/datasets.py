@@ -4,10 +4,10 @@ import torch.utils.data as Data
 
 # Encoder_input    Decoder_input        Decoder_output
 sentences = [
-             ['我 是 学 生 P', 'S I am a student', 'I am a student E'],         # S: 开始符号
-             ['我 喜 欢 学 习', 'S I like learning P', 'I like learning P E'],  # E: 结束符号
-             ['我 是 男 生 P', 'S I am a boy', 'I am a boy E'],
-             ['我 爱 中 国 P', 'S I love China P', 'I love China P E']
+             ['我 是 学 生 P', 'S I am a student', 'I am a student E'],         # S: 开始符号 1,2,3,4,0
+             ['我 喜 欢 学 习', 'S I like learning P', 'I like learning P E'],  # E: 结束符号 1,5,6,3,7
+             ['我 是 男 生 P', 'S I am a boy', 'I am a boy E'],                 # 1,2,8,4,0
+             ['我 爱 中 国 P', 'S I love China P', 'I love China P E']          # 1,9,10,11,0
              ]                 # P: 占位符号，如果当前句子不足固定长度用P占位
 
 src_dict = {'P': 0, '我': 1, '是': 2, '学': 3, '生': 4, '喜': 5, '欢': 6, '习': 7, '男': 8, '爱': 9, '中': 10, '国': 11}  # 词源字典  字：索引

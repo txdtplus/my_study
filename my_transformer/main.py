@@ -1,8 +1,10 @@
 # Starting Reference: http://nlp.seas.harvard.edu/2018/04/03/attention.html#greedy-decoding
+import torch
 import torch.nn as nn
 import torch.optim as optim
 from datasets import *
 from transformer import Transformer
+from torchvision.models import ResNet
 import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -23,7 +25,10 @@ if __name__ == "__main__":
                                                             # dec_inputs : [batch_size, tgt_len]
                                                             # dec_outputs: [batch_size, tgt_len]
 
-            enc_inputs, dec_inputs, dec_outputs = enc_inputs.cuda(), dec_inputs.cuda(), dec_outputs.cuda()
+            enc_inputs = enc_inputs.to(device)
+            dec_inputs = dec_inputs.to(device)
+            dec_outputs = dec_outputs.to(device)
+            
             outputs, enc_self_attns, dec_self_attns, dec_enc_attns = model(enc_inputs, dec_inputs)
                                                             # outputs: [batch_size * tgt_len, tgt_vocab_size]
             loss = criterion(outputs, dec_outputs.view(-1))
@@ -33,7 +38,7 @@ if __name__ == "__main__":
             optimizer.step()
 
     write_folder = os.getenv("USERPROFILE") + '\.cache\my_transformer'
-    if ~os.path.exists(write_folder):
+    if not os.path.exists(write_folder):
         os.mkdir(write_folder)
 
     
