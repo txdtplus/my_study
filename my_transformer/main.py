@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from datasets import *
 from transformer import Transformer
+import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -30,5 +31,11 @@ if __name__ == "__main__":
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-    torch.save(model.state_dict(), 'model.pth')
+
+    write_folder = os.getenv("USERPROFILE") + '\.cache\my_transformer'
+    if ~os.path.exists(write_folder):
+        os.mkdir(write_folder)
+
+    
+    torch.save(model.state_dict(), os.path.join(write_folder, 'model.pth'))
     print("保存模型")

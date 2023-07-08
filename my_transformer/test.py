@@ -1,5 +1,6 @@
 from datasets import *
 from transformer import Transformer
+import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -22,7 +23,8 @@ loader = Data.DataLoader(MyDataSet(enc_inputs, dec_inputs, dec_outputs), 2, True
 # enc_inputs, _, _ = next(iter(loader))
 
 model = Transformer()
-model.load_state_dict(torch.load("model.pth"))
+model_path = os.getenv("USERPROFILE") + '\.cache\my_transformer\model.pth'
+model.load_state_dict(torch.load(model_path))
 model.to(device=device)
 
 print(next(model.parameters()).device)
