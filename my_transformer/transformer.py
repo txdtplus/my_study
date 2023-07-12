@@ -49,8 +49,10 @@ class ScaledDotProductAttention(nn.Module):
                                                                         # V: [batch_size, n_heads, len_v(=len_k), d_v]
                                                                         # attn_mask: [batch_size, n_heads, seq_len, seq_len]
         scores = torch.matmul(Q, K.transpose(-1, -2)) / np.sqrt(d_k)    # scores : [batch_size, n_heads, len_q, len_k]
-        scores.masked_fill_(attn_mask, -1e9)                            # 如果时停用词P就等于 0
-        attn = nn.Softmax(dim=-1)(scores)
+        scores.masked_fill_(attn_mask, 1e-9)                            # 如果时停用词P就等于 0
+
+        print(scores[0,0])
+        attn = nn.Softmax(dim=-1)(scores) # 研究一下这个维度
         context = torch.matmul(attn, V)                                 # [batch_size, n_heads, len_q, d_v]
         return context, attn
 
@@ -120,8 +122,8 @@ class Encoder(nn.Module):
         self.layers = nn.ModuleList([EncoderLayer() for _ in range(n_layers)])
 
     def forward(self, enc_inputs):                                               # enc_inputs: [batch_size, src_len]
-        enc_outputs = self.src_emb(enc_inputs)                                   # enc_outputs: [batch_size, src_len, d_model]
-        enc_outputs = self.pos_emb(enc_outputs)                                  # enc_outputs: [batch_size, src_len, d_model]
+        enc_outputs0 = self.src_emb(enc_inputs)                                   # enc_outputs: [batch_size, src_len, d_model]
+        enc_outputs = self.pos_emb(enc_outputs0)                                  # enc_outputs: [batch_size, src_len, d_model]
         enc_self_attn_mask = get_attn_pad_mask(enc_inputs, enc_inputs)           # enc_self_attn_mask: [batch_size, src_len, src_len]
         enc_self_attns = []
         for layer in self.layers:

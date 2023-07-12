@@ -4,7 +4,6 @@ import torch.nn as nn
 import torch.optim as optim
 from datasets import *
 from transformer import Transformer
-from torchvision.models import ResNet
 import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
