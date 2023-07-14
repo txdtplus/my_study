@@ -66,7 +66,6 @@ class MultiHeadAttention(nn.Module):
 
         
 
-
 class ScaledDotProductAttention(nn.Module):
     def __init__(self):
         super(ScaledDotProductAttention, self).__init__()
