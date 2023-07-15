@@ -9,12 +9,34 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class Transformer(nn.Module):
-    def __init__(self, ) -> None:
+    def __init__(self, num_embeddings=100, N=6, d_model=512, max_length=1000, num_heads=8, dropout=0.1, d_ff=2048):
         super(Transformer, self).__init__()
+
+        self.embedding = nn.Embedding(num_embeddings=num_embeddings, embedding_dim=d_model)
+        self.positional_encoding = PositionalEncoding(d_model, max_length)
+        self.encoder = Encoder(N, d_model, num_heads, d_ff, dropout)
+        self.decoder = Decoder(N, d_model, num_heads, d_ff, dropout)
+        self.output_layer = nn.Linear(in_features=d_model, out_features=num_embeddings)
+
+    def forward(self, input_sequence, target_sequence) -> torch.Tensor:
+
+        input_embedding = self.embedding(input_sequence)
+        target_embedding = self.embedding(target_sequence)
+
+        input_embedding = self.positional_encoding(input_embedding)
+        target_embedding = self.positional_encoding(target_embedding)
+
+        encoder_output = self.encoder(input_embedding)
+        decoder_output = self.decoder(target_embedding, encoder_output)
+
+        output = self.output_layer(decoder_output)      # [batch_size, sentence_length, num_embeddings]
+
+        return output.transpose(-1, -2)
+
 
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, d_model=512, max_length=6):
+    def __init__(self, d_model=512, max_length=1000):
         super(PositionalEncoding, self).__init__()
         self.d_model = d_model
         self.position_encoding = self.create_position_encoding(d_model, max_length)
@@ -60,34 +82,126 @@ class MultiHeadAttention(nn.Module):
         # 因此value2这种写法不对
 
         scores = torch.matmul(query, key.transpose(-1, -2)) / math.sqrt(self.dk)
-        attention = torch.matmul(F.softmax(scores, dim=-1), value)
 
-        return value, value2
+        attention_weights = F.softmax(scores, dim=-1)
+        attention_output = torch.matmul(attention_weights, value).transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)       # contiguous 的作用是将张量内存存储变为连续存储。如果没有这个view()会报错，view()在这里相当于concat的作用
+        attention_output = self.out_linear(attention_output)
+
+        return attention_output
 
         
+class FeedForward(nn.Module):
+    def __init__(self, d_model=512, d_ff=2048, dropout=0.1):
+        super(FeedForward, self).__init__()
 
-class ScaledDotProductAttention(nn.Module):
-    def __init__(self):
-        super(ScaledDotProductAttention, self).__init__()
+        self.FFN = nn.Sequential(
+            nn.Linear(d_model, d_ff),
+            nn.ReLU(),
+            nn.Dropout(p=dropout),      # 根据dropout的原理，这个一层肯定要放到神经元后边
+            nn.Linear(d_ff, d_model),
+        )
+
+    def forward(self, x):
+        return self.FFN(x)
+    
+class EncoderLayer(nn.Module):
+    def __init__(self, d_model=512, num_heads=6, d_ff=2048, dropout=0.1):
+        super(EncoderLayer, self).__init__()
+        self.multi_head_attention = MultiHeadAttention(d_model, num_heads)
+        self.feed_forward = FeedForward(d_model, d_ff, dropout)
+        self.dropout = nn.Dropout(p=dropout)
+
+        self.layer_norm1 = nn.LayerNorm(d_model)
+        self.layer_norm2 = nn.LayerNorm(d_model)
+
+
+    def forward(self, x):
+
+        residual = x
+        x = self.multi_head_attention(x, x, x)
+        x = self.dropout(x)
+        x = self.layer_norm1(residual + x)
+
+        residual = x
+        x = self.feed_forward(x)
+        x = self.dropout(x)
+        x = self.layer_norm2(residual + x)
+
+        return x
+
+
+class DecoderLayer(nn.Module):
+    def __init__(self, d_model=512, num_heads=6, d_ff=2048, dropout=0.1):
+        super(DecoderLayer, self).__init__()
+
+        self.multi_head_attention1 = MultiHeadAttention(d_model, num_heads)
+        self.multi_head_attention2 = MultiHeadAttention(d_model, num_heads)
+        self.feed_forward = FeedForward(d_model, d_ff, dropout)
+
+        self.layer_norm1 = nn.LayerNorm(d_model)
+        self.layer_norm2 = nn.LayerNorm(d_model)
+        self.layer_norm3 = nn.LayerNorm(d_model)
+        self.dropout = nn.Dropout(p=dropout)
+
+    def forward(self, x, encoder_output):
+
+        residual = x
+        x = self.multi_head_attention1(x, x, x)
+        x = self.dropout(x)
+        x = self.layer_norm1(residual + x)
+
+        residual = x
+        x = self.multi_head_attention2(x, encoder_output, encoder_output)
+        x = self.dropout(x)
+        x = self.layer_norm2(residual + x)
+
+        residual = x
+        x = self.feed_forward(x)
+        x = self.dropout(x)
+        x = self.layer_norm3(residual + x)
+
+        return x
+    
+
+class Encoder(nn.Module):
+    def __init__(self, N = 6, d_model=512, num_heads=6, d_ff=2048, dropout=0.1):
+        super(Encoder, self).__init__()
+        self.layers = nn.ModuleList(
+            [EncoderLayer(d_model, num_heads, d_ff, dropout)
+              for _ in range(N)]
+            )
+        
+    def forward(self, x):
+        for layer in self.layers:
+            x = layer(x)
+        return x
+
+class Decoder(nn.Module):
+    def __init__(self, N = 6, d_model=512, num_heads=6, d_ff=2048, dropout=0.1):
+        super(Decoder, self).__init__()
+        self.layers = nn.ModuleList(
+            [DecoderLayer(d_model, num_heads, d_ff, dropout)
+              for _ in range(N)]
+            )
+    
+    def forward(self, x, encoder_output):
+        for layer in self.layers:
+            x = layer(x, encoder_output)
+        return x
+
+
+
 
 if __name__ == "__main__":
     x = torch.tensor([[1,2,3], [4,5,6]]).to(device)
-    d_model = 12
+    y = torch.tensor([[2,3,4], [5,6,7]]).to(device)
+    model = Transformer(num_embeddings=10)
+    model.to(device)
 
-    layer = nn.Embedding(num_embeddings=10, embedding_dim=d_model)
-    position_encoding = PositionalEncoding(d_model=d_model)
+    output = model(x, y)
+    target = y
+    criterion = nn.CrossEntropyLoss()
 
-    layer.to(device)
-    position_encoding.to(device)
+    loss = criterion(output, target)
 
-    x = layer(x)
-    print(x.shape)
-    y = position_encoding(x)
-    print(y.shape)
-
-    mha = MultiHeadAttention(d_model=d_model)
-    mha.to(device=device)
-    value, value2 = mha(y,y,y)
-
-    print(value - value2)
     
