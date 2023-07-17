@@ -2,8 +2,8 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from datasets import *
-from transformer import Transformer
+from beifen.datasets import *
+from transformer_old import Transformer
 import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

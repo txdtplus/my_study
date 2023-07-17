@@ -1,37 +1,44 @@
-from datasets import *
+import torch
+import torch.utils.data as Data
+from datasets import TestData, MyTranslationDataSet
 from transformer import Transformer
 import os
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def test(model, enc_input, start_symbol):
+def test(model:Transformer, test_data:TestData):
     # Starting Reference: http://nlp.seas.harvard.edu/2018/04/03/attention.html#greedy-decoding
-    enc_outputs, enc_self_attns = model.Encoder(enc_input)
-    dec_input = torch.zeros(1, tgt_len).type_as(enc_input.data)
-    next_symbol = start_symbol
-    for i in range(0, tgt_len):
-        dec_input[0][i] = next_symbol
-        dec_outputs, _, _ = model.Decoder(dec_input, enc_input, enc_outputs)
-        projected = model.projection(dec_outputs)
-        prob = projected.squeeze(0).max(dim=-1, keepdim=False)[1]
-        next_word = prob.data[i]
-        next_symbol = next_word.item()
-    return dec_input
+    
+    dataset = MyTranslationDataSet(raw_data=test_data)
+    dataloader = Data.DataLoader(dataset=dataset, batch_size=1)
+    for data in dataset:
+        enc_input = data[0].unsqueeze(0).to(device)
+        dec_input = data[1].unsqueeze(0).to(device)
+        output_length = 1
+        dec_next = torch.tensor([1])
 
-enc_inputs, dec_inputs, dec_outputs = make_data()
-loader = Data.DataLoader(MyDataSet(enc_inputs, dec_inputs, dec_outputs), 2, True)
-# enc_inputs, _, _ = next(iter(loader))
+        while output_length < test_data.max_length and torch.ne(dec_next[-1], 2):
+            
+            dec_output, enc_output = model(enc_input, dec_input)
 
-model = Transformer()
-model_path = os.getenv("USERPROFILE") + '\.cache\my_transformer\model.pth'
-model.load_state_dict(torch.load(model_path))
-model.to(device=device)
+            dec_next = dec_output.argmax().reshape(1,-1)
+            print(dec_next)
+            dec_input = torch.cat(dec_input[0], dec_next[-1], dim=1).unsqueeze(0)
+            output_length += 1
 
-print(next(model.parameters()).device)
+    return dec_output
 
-predict_dec_input = test(model, enc_inputs[2].view(1, -1).cuda(), start_symbol=tgt_dict["S"])
-predict, _, _, _ = model(enc_inputs[2].view(1, -1).cuda(), predict_dec_input)
-predict = predict.data.max(1, keepdim=True)[1]
 
-print([src_idx2word[int(i)] for i in enc_inputs[2]], '->',
-      [idx2word[n.item()] for n in predict.squeeze()])
+if __name__ == "__main__":
+    model_path = os.getenv("USERPROFILE") + '\.cache\my_transformer\model.pth'
+    test_data = TestData()
+
+    model = Transformer(
+        num_embeddings=len(test_data.tgt_dict),
+        max_length=100
+    )
+    model.load_state_dict(torch.load(model_path))
+    model.to(device=device)
+    model.eval()
+
+    output = test(model=model, test_data=test_data)
