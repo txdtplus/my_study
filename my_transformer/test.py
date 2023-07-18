@@ -4,29 +4,31 @@ from datasets import TestData, MyTranslationDataSet
 from transformer import Transformer
 import os
 
+# device = torch.device("cpu")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 def test(model:Transformer, test_data:TestData):
     # Starting Reference: http://nlp.seas.harvard.edu/2018/04/03/attention.html#greedy-decoding
     
     dataset = MyTranslationDataSet(raw_data=test_data)
     dataloader = Data.DataLoader(dataset=dataset, batch_size=1)
-    for data in dataset:
-        enc_input = data[0].unsqueeze(0).to(device)
-        dec_input = data[1].unsqueeze(0).to(device)
+    output = []
+    for data in dataloader:
+        enc_input = data[0].to(device)
+        dec_input = torch.tensor([[1]]).to(device)
         output_length = 1
-        dec_next = torch.tensor([1])
+        dec_next = torch.tensor([[1]])
 
-        while output_length < test_data.max_length and torch.ne(dec_next[-1], 2):
+        while output_length < test_data.max_length and torch.ne(dec_next[0,-1], 2):
             
-            dec_output, enc_output = model(enc_input, dec_input)
-
-            dec_next = dec_output.argmax().reshape(1,-1)
-            print(dec_next)
-            dec_input = torch.cat(dec_input[0], dec_next[-1], dim=1).unsqueeze(0)
+            dec_output = model(enc_input, dec_input)   # [batch_size, num_embeddings, sentence_length]
+            dec_output = dec_output.permute(0, 2, 1)
+            dec_next = torch.argmax(dec_output[0,-1], dim=-1).reshape(1, -1)
+            dec_input = torch.cat([dec_input, dec_next], dim=1)
             output_length += 1
-
-    return dec_output
+        output.append(dataset.idx2word(dec_input))
+    return output
 
 
 if __name__ == "__main__":
@@ -42,3 +44,7 @@ if __name__ == "__main__":
     model.eval()
 
     output = test(model=model, test_data=test_data)
+
+    for i in range(len(test_data.sentences)):
+        print("输入文本为："+test_data.sentences[i][0])
+        print("输出文本为："+output[i]+'\n')

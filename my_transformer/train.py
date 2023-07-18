@@ -20,7 +20,6 @@ if __name__ == "__main__":
         num_embeddings=len(raw_data.tgt_dict),
         max_length=100
     )
-    print(len(raw_data.tgt_dict))
     model.to(device=device)
     model.train()
 
@@ -35,7 +34,7 @@ if __name__ == "__main__":
             dec_inputs = data[1].to(device)
             dec_outputs = data[2].to(device)
             
-            outputs, _ = model(enc_inputs, dec_inputs)     # outputs: [batch_size, num_embeddings, sentence_length]
+            outputs = model(enc_inputs, dec_inputs)     # outputs: [batch_size, num_embeddings, sentence_length]
             loss = criterion(outputs, dec_outputs)
             print('Epoch:', '%04d' % (epoch + 1), 'loss =', '{:.6f}'.format(loss))
             optimizer.zero_grad()

@@ -12,6 +12,11 @@ class RawDataset:
         self.tgt_dict = {'P': 0, 'S': 1, 'E': 2, 'I': 3, 'am': 4, 'a': 5, 'student': 6, 'like': 7, 'learning': 8, 'boy': 9, 'love': 10, 'China': 11}
         # Encoder_input    Decoder_input        Decoder_output
         self.max_length = max_length
+        self.reverse_dict()
+    
+    def reverse_dict(self):
+        self.src_reverse_dict = {value:key for key,value in self.src_dict.items()}
+        self.tgt_reverse_dict = {value:key for key,value in self.tgt_dict.items()}
 
 
 class TrainData(RawDataset):
@@ -29,7 +34,11 @@ class TestData(RawDataset):
     def __init__(self, max_length=100) -> None:
         super(TestData, self).__init__(max_length=max_length)
         self.sentences = [
-             ['我 是 学 生 P', 'S', 'I am a student E'],         # S: 开始符号 1,2,3,4,0
+            #  ['我 是 学 生 P', 'S I am a student', 'I am a student E'],         # S: 开始符号 1,2,3,4,0
+            #  ['我 喜 欢 学 习', 'S I like learning P', 'I like learning P E'],  # E: 结束符号 1,5,6,3,7
+            #  ['我 是 男 生 P', 'S I am a boy', 'I am a boy E'],                 # 1,2,8,4,0
+             ['我 爱 中 国 P', ' ', ' '],          # 1,9,10,11,0
+             ['我 是 男 生 P', ' ', ' ']
              ]                 # P: 占位符号，如果当前句子不足固定长度用P占位
 
 
@@ -40,6 +49,7 @@ class MyTranslationDataSet(Data.Dataset):
         self.sentences = raw_data.sentences
         self.src_dict = raw_data.src_dict
         self.tgt_dict = raw_data.tgt_dict
+        self.tgt_reverse_dict = raw_data.tgt_reverse_dict
 
         self.src_idx2word = {self.src_dict[key]: key for key in self.src_dict}
         self.tgt_idx2word = {self.tgt_dict[key]: key for key in self.tgt_dict}
@@ -62,6 +72,21 @@ class MyTranslationDataSet(Data.Dataset):
             dec_inputs.append(dec_input)
             dec_outputs.append(dec_output)
         return torch.LongTensor(enc_inputs), torch.LongTensor(dec_inputs), torch.LongTensor(dec_outputs)
+    
+    def idx2word(self, dec_input:torch.Tensor) -> str:
+        dec_input = dec_input.view(-1)
+        output_list = dec_input.view(-1).cpu().numpy().tolist()
+
+        if self.tgt_dict['S'] in output_list:
+            output_list.remove(self.tgt_dict['S'])
+        if self.tgt_dict['P'] in output_list:
+            output_list.remove(self.tgt_dict['P'])
+        if self.tgt_dict['E'] in output_list:
+            output_list.remove(self.tgt_dict['E'])
+
+        output_word_list = [self.tgt_reverse_dict[idx] for idx in output_list]
+        output = " ".join(output_word_list)
+        return output
 
     def __len__(self):
         return self.enc_inputs.shape[0]

@@ -5,6 +5,7 @@ import math
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cpu")
 
 
 class Transformer(nn.Module):
@@ -41,7 +42,7 @@ class Transformer(nn.Module):
 
         output = self.output_layer(decoder_output)      # [batch_size, sentence_length, num_embeddings]
 
-        return output.transpose(-1, -2), encoder_output
+        return output.transpose(-1, -2)                 # [batch_size, num_embeddings, sentence_length]
 
 
 class PositionalEncoding(nn.Module):
